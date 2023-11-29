@@ -244,8 +244,11 @@ class ConnectService implements IConnectService {
   redirect() {
     const url = new URL(window.location.href)
     const redirect = url.searchParams.get(PARAM_KEY_REDIRECT) ?? hawtio.getBasePath() ?? '/'
-    log.debug('Redirect to:', redirect)
-    window.location.href = redirect
+    const encodedRedirect = encodeURIComponent(redirect)
+
+    log.debug('Redirect to:', encodedRedirect)
+    console.log('redirecting to ', encodedRedirect)
+    window.location.href = encodedRedirect
   }
 
   /**

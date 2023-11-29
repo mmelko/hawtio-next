@@ -30,7 +30,7 @@ import Jolokia, {
 import 'jolokia.js/simple'
 import $ from 'jquery'
 import { define, func, is, object, optional, record, string, type } from 'superstruct'
-import { PARAM_KEY_CONNECTION, PARAM_KEY_REDIRECT, connectService } from '../shared/connect-service'
+import { connectService, PARAM_KEY_CONNECTION, PARAM_KEY_REDIRECT } from '../shared/connect-service'
 import { log } from './globals'
 import { OptimisedJmxDomain, OptimisedJmxDomains, OptimisedMBeanInfo } from './tree'
 
@@ -322,7 +322,8 @@ class JolokiaService implements IJolokiaService {
               const redirectUrl = window.location.href
               url.pathname = loginPath
               url.searchParams.append(PARAM_KEY_REDIRECT, redirectUrl)
-              window.location.href = url.href
+
+              window.location.href = encodeURIComponent(url.href)
             }
           } else {
             // just logout
