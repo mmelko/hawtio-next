@@ -2,9 +2,9 @@ import { PluginNodeSelectionContext } from '@hawtiosrc/plugins/context'
 import { AttributeValues } from '@hawtiosrc/plugins/shared/jolokia-service'
 import { isObject } from '@hawtiosrc/util/objects'
 import { Card } from '@patternfly/react-core'
-import { OnRowClick, Table, TableBody, TableHeader, TableProps } from '@patternfly/react-table'
+import { TableComposable, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table'
 import { Response } from 'jolokia.js'
-import { useContext, useEffect, useState } from 'react'
+import React, { useContext, useEffect, useState } from 'react'
 import { HawtioEmptyCard } from '../HawtioEmptyCard'
 import { HawtioLoadingCard } from '../HawtioLoadingCard'
 import { log } from '../globals'
@@ -58,20 +58,17 @@ export const Attributes: React.FunctionComponent = () => {
     return <HawtioLoadingCard />
   }
 
-  const columns: TableProps['cells'] = ['Attribute', 'Value']
-  const rows: TableProps['rows'] = Object.entries(attributes).map(([name, value]) => [
-    name,
-    isObject(value) ? JSON.stringify(value) : String(value),
-  ])
+  const rows: { name: string; value: string }[] = Object.entries(attributes).map(([name, value]) => ({
+    name: name,
+    value: isObject(value) ? JSON.stringify(value) : String(value),
+  }))
 
   if (rows.length === 0) {
     return <HawtioEmptyCard message='This MBean has no attributes.' />
   }
 
-  const selectAttribute: OnRowClick = (_event, row) => {
-    const name = row[0]
-    const value = row[1]
-    setSelected({ name, value })
+  const selectAttribute = (attribute: { name: string; value: string }) => {
+    setSelected(attribute)
     handleModalToggle()
   }
 
@@ -81,10 +78,28 @@ export const Attributes: React.FunctionComponent = () => {
 
   return (
     <Card isFullHeight>
-      <Table aria-label='Attributes' variant='compact' cells={columns} rows={rows}>
-        <TableHeader />
-        <TableBody onRowClick={selectAttribute} />
-      </Table>
+      {/*<DataListClickableRows />*/}
+      <TableComposable aria-label='Attributes' variant='compact'>
+        <Thead>
+          <Tr>
+            <Th>Attribute</Th>
+            <Th>Value</Th>
+          </Tr>
+        </Thead>
+        <Tbody>
+          {rows.map(att => (
+            <Tr
+              key={att.name}
+              isHoverable
+              isRowSelected={selected.name === att.name}
+              onRowClick={() => selectAttribute(att)}
+            >
+              <Td>{att.name}</Td>
+              <Td>{att.value}</Td>
+            </Tr>
+          ))}
+        </Tbody>
+      </TableComposable>
       <AttributeModal
         isOpen={isModalOpen}
         onClose={handleModalToggle}
