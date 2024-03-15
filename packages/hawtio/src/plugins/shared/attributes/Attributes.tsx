@@ -1,7 +1,7 @@
 import { PluginNodeSelectionContext } from '@hawtiosrc/plugins/context'
 import { AttributeValues } from '@hawtiosrc/plugins/shared/jolokia-service'
 import { isObject } from '@hawtiosrc/util/objects'
-import { Card } from '@patternfly/react-core'
+import { Card, Drawer, DrawerContent, DrawerContentBody, PageSection } from '@patternfly/react-core'
 import { TableComposable, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table'
 import { Response } from 'jolokia.js'
 import React, { useContext, useEffect, useState } from 'react'
@@ -69,43 +69,52 @@ export const Attributes: React.FunctionComponent = () => {
 
   const selectAttribute = (attribute: { name: string; value: string }) => {
     setSelected(attribute)
-    handleModalToggle()
+    if (!isModalOpen) {
+      setIsModalOpen(true)
+    }
   }
 
-  const handleModalToggle = () => {
-    setIsModalOpen(!isModalOpen)
-  }
+  const panelContent = (
+    <AttributeModal
+      isOpen={isModalOpen}
+      onClose={() => setIsModalOpen(false)}
+      onUpdate={() => setReload(true)}
+      input={selected}
+    />
+  )
 
-  return (
-    <Card isFullHeight>
-      {/*<DataListClickableRows />*/}
-      <TableComposable aria-label='Attributes' variant='compact'>
-        <Thead>
-          <Tr>
-            <Th>Attribute</Th>
-            <Th>Value</Th>
+  const attributesTable = (
+    <TableComposable aria-label='Attributes' variant='compact'>
+      <Thead>
+        <Tr>
+          <Th>Attribute</Th>
+          <Th>Value</Th>
+        </Tr>
+      </Thead>
+      <Tbody>
+        {rows.map((att, index) => (
+          <Tr
+            key={att.name + '-' + index}
+            isHoverable
+            isRowSelected={selected.name === att.name}
+            onRowClick={() => selectAttribute(att)}
+          >
+            <Td>{att.name}</Td>
+            <Td>{att.value}</Td>
           </Tr>
-        </Thead>
-        <Tbody>
-          {rows.map(att => (
-            <Tr
-              key={att.name}
-              isHoverable
-              isRowSelected={selected.name === att.name}
-              onRowClick={() => selectAttribute(att)}
-            >
-              <Td>{att.name}</Td>
-              <Td>{att.value}</Td>
-            </Tr>
-          ))}
-        </Tbody>
-      </TableComposable>
-      <AttributeModal
-        isOpen={isModalOpen}
-        onClose={handleModalToggle}
-        onUpdate={() => setReload(true)}
-        input={selected}
-      />
-    </Card>
+        ))}
+      </Tbody>
+    </TableComposable>
+  )
+  return (
+    <React.Fragment>
+      <Card>
+        <Drawer isExpanded={isModalOpen} className={'pf-m-inline-on-2xl'}>
+          <DrawerContent panelContent={panelContent}>
+            <DrawerContentBody hasPadding> {attributesTable}</DrawerContentBody>
+          </DrawerContent>
+        </Drawer>
+      </Card>
+    </React.Fragment>
   )
 }
