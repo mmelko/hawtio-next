@@ -32,7 +32,7 @@ import React, { createContext, useContext, useState } from 'react'
 import './OperationForm.css'
 import { Operation, OperationArgument } from './operation'
 import { operationService } from './operation-service'
-import EllipsisVIcon from '@patternfly/react-icons/dist/js/icons/ellipsis-v-icon'
+import { EllipsisVIcon } from '@patternfly/react-icons/'
 
 export const OperationContext = createContext<{
   name: string

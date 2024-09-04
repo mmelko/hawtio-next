@@ -49,6 +49,8 @@ export type RouteStats = Statistics & {
 
 export const ROUTE_OPERATIONS = {
   dumpRoutesAsXml: 'dumpRoutesAsXml()',
+  dumbRoutesAsYaml: 'dumpRoutesAsYaml()',
+  dumbRouteAsYaml: 'dumpRouteAsYaml()',
 } as const
 
 // TODO: This service should be named more properly like RoutesXmlService, RouteStatisticsService, etc.
@@ -174,6 +176,20 @@ class RoutesService {
     return xml
   }
 
+  async fetchRoutesYaml(contextNode: MBeanNode): Promise<string> {
+    const { objectName } = contextNode
+    if (!objectName) {
+      throw new Error('Cannot process route yaml as mbean name not available')
+    }
+
+    const yaml = (await jolokiaService.execute(objectName, ROUTE_OPERATIONS.dumbRoutesAsYaml)) as string
+    if (!yaml) {
+      throw new Error('Failed to extract any yaml from mbean: ' + objectName)
+    }
+
+    return yaml
+  }
+
   /**
    * Looks up the routes XML for the selected route and processes the selected route's XML.
    */
@@ -197,6 +213,12 @@ class RoutesService {
     try {
       const xml = await this.fetchRoutesXml(contextNode)
       routesNode.addMetadata('xml', xml)
+
+      const yaml = await this.fetchRoutesYaml(contextNode)
+      if (yaml && yaml.length > 0) {
+        routesNode.addMetadata('yaml', yaml)
+      }
+
       for (const routeNode of routesNode.getChildren()) {
         try {
           const routeXml = this.processRouteXml(xml, routeNode)
@@ -266,6 +288,19 @@ class RoutesService {
       routeStats = { ...routeStats, [atr]: pDoc.getAttribute(atr) }
     }
     return routeStats
+  }
+
+  async loadRouteYaml(node: MBeanNode): Promise<string> {
+    const { objectName } = node
+    if (!objectName) {
+      throw new Error('Cannot process route xml as mbean name not available')
+    }
+
+    const yaml = (await jolokiaService.execute(objectName, ROUTE_OPERATIONS.dumbRouteAsYaml)) as string
+    if (!yaml) {
+      throw new Error('Failed to extract any yaml from mbean: ' + objectName)
+    }
+    return yaml
   }
 }
 

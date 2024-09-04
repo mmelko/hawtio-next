@@ -32,37 +32,21 @@ import { ConnectContext } from '../context'
 import { log } from '../globals'
 import { ConnectionModal } from './ConnectionModal'
 import { ImportModal } from './ImportModal'
-import EllipsisVIcon from '@patternfly/react-icons/dist/js/icons/ellipsis-v-icon'
-import { RouteVisualization } from '@kaoto/kaoto/components'
-import { ReloadContext } from '@kaoto/kaoto'
+import { EllipsisVIcon } from '@patternfly/react-icons/'
 
 export const Remote: React.FunctionComponent = () => {
-  const code = `
-- route:
-    id: route-2520
-    from:
-      id: from-2091
-      uri: timer:template
-      parameters:
-        period: "1000"
-      steps:
-        - log:
-            id: log-3278
-            message: template message
-`
+  const { connections } = useContext(ConnectContext)
+  log.debug('Connections:', connections)
 
   return (
-    <>
-      <ReloadContext.Provider value={{ reloadPage: () => console.log('reloading'), lastRender: -1 }}>
-        <RouteVisualization
-          catalogUrl='https://raw.githubusercontent.com/KaotoIO/catalogs/main/catalogs/index.json'
-          code={code}
-          codeChange={code => {
-            console.log(code)
-          }}
-        />
-      </ReloadContext.Provider>
-    </>
+    <React.Fragment>
+      <RemoteToolbar />
+      <DataList id='connection-list' aria-label='connection list' isCompact>
+        {Object.entries(connections).map(([id, connection]) => (
+          <ConnectionItem key={id} id={id} connection={connection} />
+        ))}
+      </DataList>
+    </React.Fragment>
   )
 }
 
@@ -242,25 +226,25 @@ const ConnectionItem: React.FunctionComponent<{
           >
             Connect
           </Button>
-          <Dropdown
-            key={`connection-action-dropdown-${id}`}
-            isOpen={isDropdownOpen}
-            onOpenChange={setIsDropdownOpen}
-            toggle={(toggleRef: React.Ref<MenuToggleElement>) => (
-              <MenuToggle variant='plain' ref={toggleRef} onClick={handleDropdownToggle}>
-                <EllipsisVIcon />
-              </MenuToggle>
-            )}
-          >
-            <DropdownList>
-              <DropdownItem key={`connection-action-edit-${id}`} onClick={handleEditToggle}>
-                Edit
-              </DropdownItem>
-              <DropdownItem key={`connection-action-delete-${id}`} onClick={handleConfirmDeleteToggle}>
-                Delete
-              </DropdownItem>
-            </DropdownList>
-          </Dropdown>
+          {/*<Dropdown*/}
+          {/*  key={`connection-action-dropdown-${id}`}*/}
+          {/*  isOpen={isDropdownOpen}*/}
+          {/*  onOpenChange={setIsDropdownOpen}*/}
+          {/*  toggle={(toggleRef: React.Ref<MenuToggleElement>) => (*/}
+          {/*    <MenuToggle variant='plain' ref={toggleRef} onClick={handleDropdownToggle}>*/}
+          {/*      <EllipsisVIcon />*/}
+          {/*    </MenuToggle>*/}
+          {/*  )}*/}
+          {/*>*/}
+          {/*  <DropdownList>*/}
+          {/*    <DropdownItem key={`connection-action-edit-${id}`} onClick={handleEditToggle}>*/}
+          {/*      Edit*/}
+          {/*    </DropdownItem>*/}
+          {/*    <DropdownItem key={`connection-action-delete-${id}`} onClick={handleConfirmDeleteToggle}>*/}
+          {/*      Delete*/}
+          {/*    </DropdownItem>*/}
+          {/*  </DropdownList>*/}
+          {/*</Dropdown>*/}
           <ConfirmDeleteModal />
         </DataListAction>
       </DataListItemRow>

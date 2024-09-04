@@ -54,6 +54,9 @@
       "maxLineWidth": 80
     }
   },
+  "resolutions": {
+    "@kaoto/kaoto": "portal:/Users/mmelko/RH_WORK/work/hawtio-kaoto/kaoto/packages/ui"
+  },
   "packageManager": "yarn@4.2.1",
   "engines": {
     "yarn": ">=4"

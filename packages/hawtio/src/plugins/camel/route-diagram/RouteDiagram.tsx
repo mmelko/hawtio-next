@@ -1,228 +1,243 @@
 import { Table, Tbody, Td, Tr } from '@patternfly/react-table'
 import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import ReactFlow, {
-  Connection,
-  ConnectionLineType,
-  Handle,
-  Node,
-  NodeProps,
-  NodeToolbar,
-  Position,
-  addEdge,
-  useEdgesState,
-  useNodesState,
-} from 'reactflow'
+
 import 'reactflow/dist/style.css'
 import { camelPreferencesService } from '../camel-preferences-service'
 import { CamelContext } from '../context'
 import { routesService } from '../routes-service'
 import './RouteDiagram.css'
-import { Annotation, RouteDiagramContext } from './context'
-import { CamelNodeData, visualizationService } from './visualization-service'
+
+import { RouteVisualization } from '@kaoto/kaoto/components'
+import { isRouteNode, isRoutesFolder } from '@hawtiosrc/plugins/camel/camel-service'
 
 export const RouteDiagram: React.FunctionComponent = () => {
   const { selectedNode } = useContext(CamelContext)
-  const { setGraphNodeData, graphSelection, setGraphSelection } = useContext(RouteDiagramContext)
-  const [nodes, setNodes, onNodesChange] = useNodesState([])
-  const [edges, setEdges, onEdgesChange] = useEdgesState([])
   const [statsXml, setStatsXml] = useState('')
-  const nodeTypes = useMemo(() => ({ camel: CamelNode }), [])
+  const [yaml, setYaml] = useState('')
+  const isRoute: boolean = isRouteNode(selectedNode!) && !isRoutesFolder(selectedNode!)
 
   useEffect(() => {
     if (!selectedNode) {
       return
     }
-
+    let yaml
     const xml = selectedNode.getMetadata('xml')
+    if (!isRoute) {
+      yaml = selectedNode.getMetadata('yaml')
+      if (yaml) {
+        setYaml(yaml)
+      }
+    } else {
+      yaml = routesService.loadRouteYaml(selectedNode).then(yaml => {
+        setYaml(yaml)
+      })
+    }
     if (!xml) {
       return
     }
-
-    visualizationService.loadRouteXmlNodes(selectedNode, xml).then(({ camelNodes, edges }) => {
-      setGraphNodeData(camelNodes.map(camelNode => camelNode.data))
-
-      if (statsXml) {
-        visualizationService.updateStats(statsXml, camelNodes)
-      }
-      const { layoutedNodes, layoutedEdges } = visualizationService.getLayoutedElements(camelNodes, edges)
-
-      layoutedNodes.forEach(node => {
-        node.selected = graphSelection === node.data.cid
-      })
-
-      setEdges([...layoutedEdges])
-
-      if (statsXml) {
-        const nodesWithStats = visualizationService.updateStats(statsXml, layoutedNodes)
-        setNodes(nodesWithStats)
-      } else {
-        setNodes([...layoutedNodes])
-      }
-    })
-  }, [selectedNode, setEdges, setNodes, statsXml, setGraphNodeData, graphSelection])
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      if (selectedNode) {
-        const xml = await routesService.dumpRoutesStatsXML(selectedNode)
-        if (xml) {
-          setStatsXml(xml)
-        }
-      }
-    }
-    // fetch for the first time
-    fetchStats()
-    // fetch periodically
-    const interval = setInterval(() => fetchStats(), 2000)
-    return () => clearInterval(interval)
   }, [selectedNode])
 
-  const onConnect = useCallback(
-    (params: Connection) =>
-      setEdges(eds => addEdge({ ...params, type: ConnectionLineType.SmoothStep, animated: true }, eds)),
-    [setEdges],
-  )
-
-  if (!selectedNode) {
-    return null
-  }
-
-  const onNodeClick = (_event: React.MouseEvent, node: Node) => {
-    setGraphSelection(node.data.cid)
-  }
-
   return (
-    <div className='camel-route-diagram'>
-      <ReactFlow
-        nodeTypes={nodeTypes}
-        nodes={nodes}
-        edges={edges}
-        connectionLineType={ConnectionLineType.SmoothStep}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        fitView={true}
-        elementsSelectable={true}
-        onNodeClick={onNodeClick}
+    <div style={{ height: '950px', position: 'relative' }}>
+      <RouteVisualization
+        className={'kaoto-height'}
+        style={{ height: '100%' }}
+        catalogUrl='https://raw.githubusercontent.com/KaotoIO/catalogs/main/catalogs/index.json'
+        code={yaml}
+        codeChange={code => {
+          console.log(code)
+        }}
       />
     </div>
   )
 }
 
-const CamelNode: React.FunctionComponent<NodeProps<CamelNodeData>> = ({
-  data,
-  selected,
-  sourcePosition,
-  targetPosition,
-}) => {
-  const { showStatistics, doubleClickAction, annotations } = useContext(RouteDiagramContext)
-  const [isVisible, setVisible] = useState(false)
-  const [showFull] = useState(false)
-  const [annotation, setAnnotation] = useState<Annotation | undefined>(undefined)
-
-  const { showInflightCounter } = camelPreferencesService.loadOptions()
-
-  useEffect(() => {
-    if (!annotations || annotations.length === 0) {
-      setAnnotation(undefined)
-      return
-    }
-
-    const ann = annotations.find(a => a.nodeId === data.cid)
-    setAnnotation(ann)
-  }, [annotations, data.cid])
-
-  const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!doubleClickAction) return
-
-    doubleClickAction(data)
-  }
-
-  const truncate = (label: string) => {
-    const newline = label.indexOf('\n')
-    if (label.length < 20 && newline === -1) return label
-
-    const newLabel = label.replace('\n', ' ')
-    return newLabel.substring(0, 17) + '...'
-  }
-
-  return (
-    <div
-      className={'camel-node-content' + (selected ? ' highlighted' : '')}
-      onMouseEnter={() => {
-        if (showStatistics) setVisible(true)
-      }}
-      onMouseLeave={() => {
-        if (showStatistics) setVisible(false)
-      }}
-      onDoubleClick={handleDoubleClick}
-    >
-      <Handle type='target' position={targetPosition ?? Position.Top} />
-      <Handle type='source' position={sourcePosition ?? Position.Bottom} id='a' />
-
-      <div className='annotation'>{annotation?.element}</div>
-      <div className='icon'>{data.imageUrl}</div>
-      <div className='inflights'>{showInflightCounter && data.stats?.exchangesInflight}</div>
-      <div className='number'>{data.stats?.exchangesCompleted}</div>
-      <div className='camel-node-label'> {truncate(data.label)}</div>
-
-      {showStatistics && (
-        <NodeToolbar isVisible={isVisible} position={Position.Bottom} style={{ marginTop: '-30px' }}>
-          <div className={'node-tooltip'}>
-            {!data.stats && data.label}
-            {data.stats && !showFull && (
-              <Table variant={'compact'}>
-                <Tbody style={{ fontSize: 'xx-small' }}>
-                  <Tr>
-                    <Td>ID</Td>
-                    <Td>{data.stats.id}</Td>
-                  </Tr>
-                  <Tr>
-                    <Td>Completed</Td>
-                    <Td>{data.stats?.exchangesCompleted}</Td>
-                  </Tr>
-                  <Tr>
-                    <Td>Inflight</Td>
-                    <Td>{data.stats?.exchangesInflight}</Td>
-                  </Tr>
-                  <Tr>
-                    <Td>Last</Td>
-                    <Td>{data.stats?.lastProcessingTime} (ms)</Td>
-                  </Tr>
-                  <Tr>
-                    <Td>Mean</Td>
-                    <Td>{data.stats?.meanProcessingTime} (ms)</Td>
-                  </Tr>
-                  <Tr>
-                    <Td>Mix</Td>
-                    <Td>{data.stats?.minProcessingTime} (ms)</Td>
-                  </Tr>
-                  <Tr>
-                    <Td>Max</Td>
-                    <Td>{data.stats?.maxProcessingTime} (ms)</Td>
-                  </Tr>
-                </Tbody>
-              </Table>
-            )}
-
-            {data.stats && showFull && (
-              //TODO finish full statistics
-              <Table variant={'compact'}>
-                <Tbody style={{ fontSize: 'xx-small' }}>
-                  {Object.entries(data.stats).map(s => {
-                    return (
-                      <Tr key={s[0]}>
-                        <Td>{s[0]}</Td>
-                        <Td>{s[1]}</Td>
-                      </Tr>
-                    )
-                  })}
-                </Tbody>
-              </Table>
-            )}
-          </div>
-        </NodeToolbar>
-      )}
-    </div>
-  )
-}
+//
+//     visualizationService.loadRouteXmlNodes(selectedNode, xml).then(({ camelNodes, edges }) => {
+//       setGraphNodeData(camelNodes.map(camelNode => camelNode.data))
+//
+//       if (statsXml) {
+//         visualizationService.updateStats(statsXml, camelNodes)
+//       }
+//       const { layoutedNodes, layoutedEdges } = visualizationService.getLayoutedElements(camelNodes, edges)
+//
+//       layoutedNodes.forEach(node => {
+//         node.selected = graphSelection === node.data.cid
+//       })
+//
+//       setEdges([...layoutedEdges])
+//
+//       if (statsXml) {
+//         const nodesWithStats = visualizationService.updateStats(statsXml, layoutedNodes)
+//         setNodes(nodesWithStats)
+//       } else {
+//         setNodes([...layoutedNodes])
+//       }
+//     })
+//   }, [selectedNode, setEdges, setNodes, statsXml, setGraphNodeData, graphSelection])
+//
+//   useEffect(() => {
+//     const fetchStats = async () => {
+//       if (selectedNode) {
+//         const xml = await routesService.dumpRoutesStatsXML(selectedNode)
+//         if (xml) {
+//           setStatsXml(xml)
+//         }
+//       }
+//     }
+//     // fetch for the first time
+//     fetchStats()
+//     // fetch periodically
+//     const interval = setInterval(() => fetchStats(), 2000)
+//     return () => clearInterval(interval)
+//   }, [selectedNode])
+//
+//   const onConnect = useCallback(
+//     (params: Connection) =>
+//       setEdges(eds => addEdge({ ...params, type: ConnectionLineType.SmoothStep, animated: true }, eds)),
+//     [setEdges],
+//   )
+//
+//   if (!selectedNode) {
+//     return null
+//   }
+//
+//   const onNodeClick = (_event: React.MouseEvent, node: Node) => {
+//     setGraphSelection(node.data.cid)
+//   }
+//
+//   return (
+//     <div className='camel-route-diagram'>
+//       <ReactFlow
+//         nodeTypes={nodeTypes}
+//         nodes={nodes}
+//         edges={edges}
+//         connectionLineType={ConnectionLineType.SmoothStep}
+//         onNodesChange={onNodesChange}
+//         onEdgesChange={onEdgesChange}
+//         onConnect={onConnect}
+//         fitView={true}
+//         elementsSelectable={true}
+//         onNodeClick={onNodeClick}
+//       />
+//     </div>
+//   )
+// }
+//
+// const CamelNode: React.FunctionComponent<NodeProps<CamelNodeData>> = ({
+//   data,
+//   selected,
+//   sourcePosition,
+//   targetPosition,
+// }) => {
+//   const { showStatistics, doubleClickAction, annotations } = useContext(RouteDiagramContext)
+//   const [isVisible, setVisible] = useState(false)
+//   const [showFull] = useState(false)
+//   const [annotation, setAnnotation] = useState<Annotation | undefined>(undefined)
+//
+//   const { showInflightCounter } = camelPreferencesService.loadOptions()
+//
+//   useEffect(() => {
+//     if (!annotations || annotations.length === 0) {
+//       setAnnotation(undefined)
+//       return
+//     }
+//
+//     const ann = annotations.find(a => a.nodeId === data.cid)
+//     setAnnotation(ann)
+//   }, [annotations, data.cid])
+//
+//   const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+//     if (!doubleClickAction) return
+//
+//     doubleClickAction(data)
+//   }
+//
+//   const truncate = (label: string) => {
+//     const newline = label.indexOf('\n')
+//     if (label.length < 20 && newline === -1) return label
+//
+//     const newLabel = label.replace('\n', ' ')
+//     return newLabel.substring(0, 17) + '...'
+//   }
+//
+//   return (
+//     <div
+//       className={'camel-node-content' + (selected ? ' highlighted' : '')}
+//       onMouseEnter={() => {
+//         if (showStatistics) setVisible(true)
+//       }}
+//       onMouseLeave={() => {
+//         if (showStatistics) setVisible(false)
+//       }}
+//       onDoubleClick={handleDoubleClick}
+//     >
+//       <Handle type='target' position={targetPosition ?? Position.Top} />
+//       <Handle type='source' position={sourcePosition ?? Position.Bottom} id='a' />
+//
+//       <div className='annotation'>{annotation?.element}</div>
+//       <div className='icon'>{data.imageUrl}</div>
+//       <div className='inflights'>{showInflightCounter && data.stats?.exchangesInflight}</div>
+//       <div className='number'>{data.stats?.exchangesCompleted}</div>
+//       <div className='camel-node-label'> {truncate(data.label)}</div>
+//
+//       {showStatistics && (
+//         <NodeToolbar isVisible={isVisible} position={Position.Bottom} style={{ marginTop: '-30px' }}>
+//           <div className={'node-tooltip'}>
+//             {!data.stats && data.label}
+//             {data.stats && !showFull && (
+//               <Table variant={'compact'}>
+//                 <Tbody style={{ fontSize: 'xx-small' }}>
+//                   <Tr>
+//                     <Td>ID</Td>
+//                     <Td>{data.stats.id}</Td>
+//                   </Tr>
+//                   <Tr>
+//                     <Td>Completed</Td>
+//                     <Td>{data.stats?.exchangesCompleted}</Td>
+//                   </Tr>
+//                   <Tr>
+//                     <Td>Inflight</Td>
+//                     <Td>{data.stats?.exchangesInflight}</Td>
+//                   </Tr>
+//                   <Tr>
+//                     <Td>Last</Td>
+//                     <Td>{data.stats?.lastProcessingTime} (ms)</Td>
+//                   </Tr>
+//                   <Tr>
+//                     <Td>Mean</Td>
+//                     <Td>{data.stats?.meanProcessingTime} (ms)</Td>
+//                   </Tr>
+//                   <Tr>
+//                     <Td>Mix</Td>
+//                     <Td>{data.stats?.minProcessingTime} (ms)</Td>
+//                   </Tr>
+//                   <Tr>
+//                     <Td>Max</Td>
+//                     <Td>{data.stats?.maxProcessingTime} (ms)</Td>
+//                   </Tr>
+//                 </Tbody>
+//               </Table>
+//             )}
+//
+//             {data.stats && showFull && (
+//               //TODO finish full statistics
+//               <Table variant={'compact'}>
+//                 <Tbody style={{ fontSize: 'xx-small' }}>
+//                   {Object.entries(data.stats).map(s => {
+//                     return (
+//                       <Tr key={s[0]}>
+//                         <Td>{s[0]}</Td>
+//                         <Td>{s[1]}</Td>
+//                       </Tr>
+//                     )
+//                   })}
+//                 </Tbody>
+//               </Table>
+//             )}
+//           </div>
+//         </NodeToolbar>
+//       )}
+//     </div>
+//   )
+//}
